@@ -1,7 +1,7 @@
 export NCCL_DEBUG=INFO
 WANDB_API_KEY=0b39e2667775768150d99b18418fb63ca15b13bc \
 CUDA_VISIBLE_DEVICES=0,1 accelerate launch --config_file /kaggle/working/aip_final/src/old_train/config/config_fsdp_t5.yaml /kaggle/working/aip_final/src/old_train/train.py       \
-        --module 'res' \
+        --module 'int' \
         --model_name "google/flan-t5-base" \
         --max_target_length 400 \
         --num_train_epochs 45 \
