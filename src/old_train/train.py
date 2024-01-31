@@ -2,7 +2,7 @@ import sys
 import os
 import argparse
 
-sys.path.insert(0, '/kaggle/working/aip/source/res')  # Add root directory here
+sys.path.insert(0, '/kaggle/working/aip_final')  # Add root directory here
 
 from src.dataloaders.dataloader_GradDST import DstDataLoader
 from src.dataloaders.dataloader_GradINT import IntDataLoader
