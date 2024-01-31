@@ -17,4 +17,6 @@ CUDA_VISIBLE_DEVICES=0,1 accelerate launch --config_file /kaggle/working/aip_fin
         --with_tracking  \
         --report_to wandb \
         --checkpointing_steps epoch \
-        --do_eval_per_epoch
+        --do_eval_per_epoch \
+        --max_train_samples 200 \
+        --max_eval_samples 100
