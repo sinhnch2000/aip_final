@@ -8,7 +8,7 @@ CUDA_VISIBLE_DEVICES=0,1 accelerate launch --config_file /kaggle/working/aip_fin
         --output_dir "./output/GradRes/30.12"  \
         --train_files  "/kaggle/input/data-gradint/GradINT/FUSEDCHAT/train.json" "/kaggle/input/data-gradint/GradINT/SGD/train.json"\
         --val_files  "/kaggle/input/data-gradint/GradINT/FUSEDCHAT/val.json" "/kaggle/input/data-gradint/GradINT/SGD/train.json"\
-        --batch_size  6 \
+        --batch_size  8 \
         --num_beams  4 \
         --weight_decay  0.3 \
         --learning_rate 3e-5 \
