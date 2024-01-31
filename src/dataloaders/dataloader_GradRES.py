@@ -3,7 +3,6 @@ import re
 from typing import Optional, List, Union, Set
 from datasets import DatasetDict, load_dataset, concatenate_datasets
 
-
 class ResDataLoader:
     def __init__(self,
                  tokenizer: str,
