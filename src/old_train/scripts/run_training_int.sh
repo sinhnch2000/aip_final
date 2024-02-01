@@ -4,7 +4,7 @@ CUDA_VISIBLE_DEVICES=0,1 accelerate launch --config_file /kaggle/working/aip_fin
         --module 'int' \
         --model_name "google/flan-t5-base" \
         --max_target_length 400 \
-        --num_train_epochs 1 \
+        --num_train_epochs 2 \
         --output_dir "./output/GradInt/0102"  \
         --train_files  "/kaggle/input/data-gradint/GradINT/FUSEDCHAT/train.json" "/kaggle/input/data-gradint/GradINT/SGD/train.json"\
         --val_files  "/kaggle/input/data-gradint/GradINT/FUSEDCHAT/val.json" "/kaggle/input/data-gradint/GradINT/SGD/train.json"\
