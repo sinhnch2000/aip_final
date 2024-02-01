@@ -12,8 +12,8 @@ CUDA_VISIBLE_DEVICES=0,1 accelerate launch --config_file /kaggle/working/aip_fin
         --batch_size  8 \
         --num_beams  4 \
         --weight_decay  0.3 \
-        --learning_rate 3e-5 \
-        --num_warmup_steps 1500 \
+        --learning_rate 1e-5 \
+        --num_warmup_steps 100 \
         --gradient_accumulation_steps 16 \
         --with_tracking  \
         --report_to wandb \
