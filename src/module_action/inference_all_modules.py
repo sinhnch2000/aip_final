@@ -59,13 +59,13 @@ ontology = {
     }
 ontology_string = "HOTELS_1:(slot0=location of the hotel; slot1=number of rooms in the reservation; slot2=start date for the reservation; slot3=number of days in the reservation; slot4=star rating of the hotel; slot5=name of the hotel; slot6=address of the hotel; slot7=phone number of the hotel; slot8=price per night for the reservation; slot9=boolean flag indicating if the hotel has wifi)"
 db_slots = ["hotel_name", "destination", "star_rating", "street_address", "phone_number", "price_per_night", "has_wifi", "number_of_rooms_available"]
-path_db = r"C:\ALL\FPT\AIP\aip_final\src\module_action\db_hotels_1\hotels_1.db"
+path_db = r"C:\Users\HP\Desktop\Capstone\aip_final\src\module_action\db_hotels_1\hotels_1.db"
 
 dm = Dialogue_Manager(intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain)
 model_name_or_path = 'google/flan-t5-base'
-config_path = r'C:\Users\This PC\PycharmProjects\AIP\src\config.json'
-ckpt_dst = r"C:\ALL\FPT\AIP\aip_final\checkpoint\model_dst_v1.bin"
-ckpt_res = r'C:\ALL\FPT\AIP\aip_final\checkpoint\ckpt_res.bin'
+config_path = r"C:\Users\HP\Desktop\Capstone\aip_final\src\module_action\config.json"
+ckpt_dst = r"C:\Users\HP\Desktop\Capstone\aip_final\checkpoint\model_dst_v1.bin"
+ckpt_res = r'C:\Users\HP\Desktop\Capstone\aip_final\checkpoint\ckpt_res.bin'
 
 tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
 config = AutoConfig.from_pretrained(config_path)
