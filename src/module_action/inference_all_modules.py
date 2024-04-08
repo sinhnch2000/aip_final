@@ -61,7 +61,6 @@ ontology_string = "HOTELS_1:(slot0=location of the hotel; slot1=number of rooms 
 db_slots = ["hotel_name", "destination", "star_rating", "street_address", "phone_number", "price_per_night", "has_wifi", "number_of_rooms_available"]
 path_db = r"C:\ALL\FPT\AIP\aip_final\src\module_action\db_hotels_1\hotels_1.db"
 
-dm = Dialogue_Manager(intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain)
 model_name_or_path = 'google/flan-t5-base'
 config_path = r'C:\Users\This PC\PycharmProjects\AIP\src\config.json'
 ckpt_dst = r"C:\ALL\FPT\AIP\aip_final\checkpoint\model_dst_v1.bin"
@@ -125,10 +124,10 @@ def add_state(current_query):
         output = model_dst.generate(input_tokens["input_ids"], attention_mask=input_tokens["attention_mask"],
                                     max_new_tokens=100)
         data_dst_1 = tokenizer.decode(output[0], skip_special_tokens=True)
-        dm.convert_output_dst(data_dst_1)
-        dm.transform_action()
-        dm.convert_to_output_paper()
-        return dm.output_paper
+        dm1.convert_output_dst(data_dst_1)
+        dm1.transform_action()
+        dm1.convert_to_output_paper()
+        return dm1.output_paper
     else:
         current_state = ""
         list_current_state = []
@@ -213,12 +212,14 @@ def bot(context):
 
 with gr.Blocks() as demo:
     with gr.Tab("Module 1"):
+        dm1 = Dialogue_Manager(intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain)
         state = gr.Interface(fn=add_state, inputs="text", outputs="text")
 
     with gr.Tab("Module 3"):
         response = gr.Interface(fn=add_action, inputs="text", outputs="text")
 
     with gr.Tab("All modules"):
+        dm = Dialogue_Manager(intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain)
         chatbot = gr.Chatbot(
             [],
             elem_id="chatbot",
