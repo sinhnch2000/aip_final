@@ -6,7 +6,7 @@ import os
 from typing import List, Dict, Union, Optional
 from src.dataconverters.converter import DialConverter
 
-sys.path.append('/content/drive/MyDrive/Colab Notebooks/baseline_v1/gradients.baselinev1.dialogstate')
+sys.path.append(r'C:\Users\HP\Desktop\Capstone\aip_final')
 list_sgd_domain = ['buses_1', 'buses_2', 'buses_3', 'calendar_1', 'events_1', 'events_2', 'events_3', 'flights_3',
                    'flights_1', 'flights_2', 'flights_4', 'homes_1', 'homes_2', 'hotels_1', 'hotels_2', 'banks_2',
                    'hotels_3', 'hotels_4', 'media_1', 'media_3', 'messaging_1', 'movies_1', 'movies_3', 'movies_2',
@@ -21,7 +21,7 @@ class SGDConverter(DialConverter):
                  file_path: str,
                  save_path: str,
                  tag_user: str = 'USER',
-                 tag_system: str = 'AGENT',
+                 tag_system: str = 'SYSTEM',
                  window_context: int = 5  # slide window
                  ) -> None:
         """
@@ -51,17 +51,20 @@ class SGDConverter(DialConverter):
             # Analyze all dialogues
             for dialogue in dataset:
                 id = dialogue["dialogue_id"]
+                list_gold_domain = self.get_list_gold_domain(dialogue, list_ontology)
+
                 # process dialogue into sub-dialogues
                 list_sub_dialogue = []
                 for i in range(len(dialogue['turns'])):
                     if i % 2 == 0:
                         list_sub_dialogue.append(dialogue['turns'][max(0, i - cw):max(0, i + 1)])
                 # process raw list_sub_dialogue to interim list_sub_sample
-                list_sub_sample = self.get_list_sub_sample(id, dialogue["services"], list_sub_dialogue, list_ontology,list_instruction)
+                list_sub_sample = self.get_list_sub_sample(id, list_gold_domain, list_sub_dialogue, list_ontology,list_instruction)
+
                 list_all_sample.extend(list_sub_sample)
             self.save_datapath(list_all_sample, filename)
 
-    def get_list_sub_sample(self, id, all_domains, list_sub_dialogue, list_ontology, list_instruction):
+    def get_list_sub_sample(self, id, list_gold_domain, list_sub_dialogue, list_ontology, list_instruction):
         list_sub_sample = []
         current_values = set()
         previous_state = dict()
@@ -72,20 +75,17 @@ class SGDConverter(DialConverter):
             # get context, current_user, instruction, list_user_action and ontology
             list_turn = []
             for turn in sub_dialogue:
-                speaker = self.tag_user if turn['speaker'] == 'USER' else self.tag_system
+                speaker = self.tag_user if turn['speaker'] == self.tag_user else self.tag_system
                 list_turn.append(speaker + ": " + turn['utterance'])
 
             item['instruction'] = self.get_instruction(list_instruction).strip()
-            item['list_user_action'] = ', '.join(action.lower() for action in list_user_action)
-            item['ontology'] = ''
+            item['ontology'] = ' & '.join(gold_domain for gold_domain in list_gold_domain).strip()
             item['id_dialogue'] = id
             item['id_turn'] = id_turn * 2 + 1
-            item['context'] = ' '.join([list_turn[i].strip() for i in range(len(list_turn)-1)]).strip()
-            item['current_query'] = list_turn[-1].strip()
-            if item['context'] != "":
-                item['current_query'] = item['current_query'][6:]
-
-
+            item['history'] = ' '.join([list_turn[i].strip() for i in range(len(list_turn)-1)]).strip()
+            item['current'] = list_turn[-1].strip()
+            if item['current'][-1] not in [',', '.', '!', '?', ';']:
+                item['current'] = item['current'] + '.'
             # get type, current_state and current_action
             frames = sub_dialogue[-1]['frames']
             if len(sub_dialogue)>1:
@@ -105,8 +105,7 @@ class SGDConverter(DialConverter):
                         for description, listslots in description_listslots.items():
                             if slot in listslots:
                                 slot = slotstr
-                    if "slot" not in slot and slot != "intent" and slot !="":
-                        print(act, slot, action["values"])
+
                     if act == "request":
                         value = "?"
                     else:
@@ -169,12 +168,15 @@ class SGDConverter(DialConverter):
                                 list_asv.append(action + '(' + slot + '=' + value + ')')
                 domain_action += ' and '.join(p for p in list_asv) + ']'
                 list_domain_action.append(domain_action)
-            item['label'] = ' || '.join(dasv for dasv in list_domain_action)
-            if "general" in item['label'].lower() or "[]" in item['label'].lower():
-                item['label'] = ""
-            list_current_domains = current_action.keys()
-            list_gold_domain = self.get_list_gold_domain(all_domains, list_current_domains, list_ontology)
-            item['ontology'] = '||'.join(gold_domain for gold_domain in list_gold_domain).strip()
+
+
+            onto_mapping = self.map_ontology( sub_dialogue[-1]['frames'][-1]["service"].lower(), list_ontology)
+            intent_real = sub_dialogue[-1]['frames'][-1]['state']['active_intent']
+            for intent, intentDigit_description in onto_mapping.items():
+
+                intent_real = list(intentDigit_description.keys())[0]
+            item['label'] = sub_dialogue[-1]['frames'][-1]["service"].lower() + "-"+intent_real
+
             list_sub_sample.append(item)
         return list_sub_sample
 
@@ -206,9 +208,13 @@ class SGDConverter(DialConverter):
 
     def map_ontology(self, domain, ontologies, count=0):
         map_ontology_domain = {}
-        for description, lists_slot in ontologies[domain.lower()].items():
-            map_ontology_domain.setdefault("slot" + str(count), {description: lists_slot})
+        for intent, description_requiredslot in ontologies[domain].items():
+            description = list(description_requiredslot.keys())[0]
+
+            map_ontology_domain.setdefault(intent, {"intent" + str(count): description})
             count = count + 1
+
+
         return map_ontology_domain
         # {  "slot0":{"area to search for attractions": ["area"]},
         #    "slot1":{"name of the attraction": ["name"],
@@ -218,34 +224,35 @@ class SGDConverter(DialConverter):
         onto_mapping = self.map_ontology(domain_name, ontologies)
         tmps = []
         for slotstr, description_listslots in onto_mapping.items():
-            tmps.append(slotstr + "=" + list(description_listslots.keys())[0])
 
-        value_onto = domain_name.upper() + ":(" + '; '.join(tmp for tmp in tmps) + ")"
+            tmps.append(list(description_listslots.keys())[0] + "=" + list(description_listslots.values())[0])
+
+        value_onto = domain_name+ ":[" + ' | '.join(tmp for tmp in tmps) + "]"
+
         return value_onto, onto_mapping
         # value_onto = DOMAIN:(slot0=des0,slot1=des1,slot2=des2)
 
-    def get_list_gold_domain(self, all_domains, list_current_domains, ontology):
+    def get_list_gold_domain(self, dialogue, ontology):
         gold_domain = []
         tmp_domain = set()
-        if len(list_current_domains) > 0:
-            domains = list_current_domains
-        else:
-            domains = all_domains
-        for domain in domains:
+        goal = dialogue["services"]
+
+        for domain in goal:
             tmp_domain.add(domain.lower())
         for domain in tmp_domain:
             if domain in list_sgd_domain:
                 value_onto, _ = self.get_ontology(domain, ontology)
                 gold_domain.append(value_onto)
+
         return gold_domain
 
 if __name__ == '__main__':
     # TEST
     sgd_converter = SGDConverter(
-        file_path=r'C:\ALL\GRADIENT\SERVER\gradient_server_test\data\raw\SGD',
-        save_path=r'C:\ALL\GRADIENT\SERVER\gradient_server_test\data\interim\GradSearch\GradSearch_v1\SGD').__call__(
-        instruction_path=r"C:\ALL\GRADIENT\SERVER\gradient_server_test\data\instructions\instruct_GradSearch_old.txt",
-        ontolopy_path=r"C:\ALL\GRADIENT\SERVER\gradient_server_test\data\schema_guided.json")
+        file_path=r'C:\Users\HP\Desktop\Capstone\data\raw\SGD',
+        save_path=r'C:\Users\HP\Desktop\Capstone\data\raw\SGD1').__call__(
+        instruction_path=r"C:\Users\HP\Desktop\Capstone\data\instruction\instruct_GradINT.txt",
+        ontolopy_path=r"C:\Users\HP\Downloads\intent_schema.json")
 
 
 
