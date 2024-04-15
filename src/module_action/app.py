@@ -62,9 +62,9 @@ db_slots = ["hotel_name", "destination", "star_rating", "street_address", "phone
 path_db = r"C:\Users\HP\Desktop\Capstone\aip_final\src\module_action\db_hotels_1\hotels_1.db"
 
 model_name_or_path = 'google/flan-t5-base'
-config_path = r"C:\Users\HP\Desktop\Capstone\aip_final\src\module_action\config.json"
-ckpt_dst = r"C:\Users\HP\Desktop\Capstone\aip_final\checkpoint\model_dst_v1.bin"
-ckpt_res = r'C:\Users\HP\Desktop\Capstone\aip_final\checkpoint\ckpt_res.bin'
+config_path = r"./config.json"
+ckpt_dst = r"../../checkpoint/model_dst_v1.bin"
+ckpt_res = r'../../checkpoint/ckpt_res.bin'
 
 tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
 config = AutoConfig.from_pretrained(config_path)
@@ -124,7 +124,7 @@ def add_state(current_query):
         output = model_dst.generate(input_tokens["input_ids"], attention_mask=input_tokens["attention_mask"],
                                     max_new_tokens=100)
         data_dst_1 = tokenizer.decode(output[0], skip_special_tokens=True)
-        dm1.convert_output_dst(data_dst_1)
+        dm1.convert_output_dst(data_dst_1,current_query)
         dm1.transform_action()
         dm1.convert_to_output_paper()
         return dm1.output_paper
@@ -138,6 +138,41 @@ def add_state(current_query):
                 list_current_state.append(dm.domain.lower()+"-"+slot+"-"+value)
         current_state += "\n".join(list_current_state)
         return "(TYPE) ODD\n\n(CURRENT ACTION)\ngeneral>asking-none-none\n\n(CURRENT STATE)\n"+ current_state
+def add_state_demo(input_template):
+    input_template = eval(input_template)
+    current_query = input_template["current"]
+
+    item_dst = input_template['instruction'] \
+            .replace('{list_user_action}', input_template['list_user_action'].strip()) \
+            .replace('{history}', input_template['history'].strip()) \
+            .replace('{current}', input_template['current'].strip()) \
+            .replace('{ontology}', input_template['ontology'].strip())
+    input_tokens = tokenizer(item_dst, return_tensors="pt")
+    output = model_dst.generate(input_tokens["input_ids"], attention_mask=input_tokens["attention_mask"],
+                                    max_new_tokens=100)
+    data_dst_1 = tokenizer.decode(output[0], skip_special_tokens=True)
+    dm1.convert_output_dst(data_dst_1,current_query)
+    dm1.transform_action()
+    dm1.convert_to_output_paper()
+    return input_template['instruction'],input_template['ontology'],input_template['history'], current_query,input_template['label']  ,dm1.output_paper
+
+
+import requests
+
+API_URL = "https://api-inference.huggingface.co/models/humarin/chatgpt_paraphraser_on_T5_base"
+headers = {"Authorization": "Bearer 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"}
+
+API_URL1 = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+headers1 = {"Authorization": "Bearer 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"}
+
+def query(payload):
+	response = requests.post(API_URL, headers=headers, json=payload)
+	return response.json()
+def query_1(payload1):
+    response = requests.post(API_URL1, headers=headers1, json=payload1)
+    return response.json()
+
+
 
 def add_action(system_action):
     sample_res_tmp = {
@@ -159,9 +194,29 @@ def add_action(system_action):
     output = model_res.generate(input_tokens["input_ids"], attention_mask=input_tokens["attention_mask"],
                                 max_new_tokens=100)
     response = tokenizer.decode(output[0], skip_special_tokens=True)
-    return response
+    output = query({
+        "inputs": response,
+    })
+    return output[0]['generated_text']
 
+def add_action_demo(input_template):
+    input_template = eval(input_template)
 
+    item_res = input_template['instruction'] \
+        .replace('{ontology}', input_template['ontology'].strip()) \
+        .replace('{context}', input_template['context'].strip()) \
+        .replace('{system_action}', input_template['system_action'].strip()) \
+        .replace('{documents}', input_template['documents'].strip())
+
+    input_tokens = tokenizer(item_res, return_tensors="pt")
+    output = model_res.generate(input_tokens["input_ids"], attention_mask=input_tokens["attention_mask"],
+                                max_new_tokens=100)
+    response = tokenizer.decode(output[0], skip_special_tokens=True)
+    output = query({
+        "inputs": response,
+    })
+    result = output[0]['generated_text']
+    return input_template["ontology"],input_template["context"],input_template["documents"],input_template["response"], result
 def add_text(context, current_query):
     print("context:")
     if context != []:
@@ -213,27 +268,54 @@ def bot(context):
                                 max_new_tokens=100)
 
     if dm.only_negate_confirm == True:
-        response = "What's problem about these information ?"
+        response1 = "What's problem about these information ?"
     else:
-        response = tokenizer.decode(output[0], skip_special_tokens=True)
-    print("module 3:", response)
+        if sample_res["system_action"] == "":
+            output = query_1({
+                "inputs": sample_dst["current_query"],
+            })
+            response1 = output[0]['generated_text'].replace(sample_dst["current_query"], "").replace("ASSISTANT: ", "").strip()
+        else:
+            response = tokenizer.decode(output[0], skip_special_tokens=True)
+            output = query({
+            "inputs": response,
+            })
+            response1 = output[0]['generated_text']
+
+    print("module 3:", response1)
     print("-----------------------------------------------------------------------------------------------------------------------------")
     context[-1][1] = "AGENT: "
-    for character in response:
+    for character in response1:
         context[-1][1] += character
         time.sleep(0.0001)
         yield context
 
-
+initial_md = "GRADBOT"
 with gr.Blocks() as demo:
+    gr.Markdown(initial_md)
+
+    total = ""
     with gr.Tab("Module 1"):
+        gr.Dropdown(
+            ["Hotel", "Restaurant", "Taxi"], label="Domains",
+            info="Please choose a domain to continue the conversation!"
+        )
         dm1 = Dialogue_Manager(intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain)
-        state = gr.Interface(fn=add_state, inputs="text", outputs="text")
+        state = gr.Interface(fn=add_state, inputs="text", outputs=["text"])
+
 
     with gr.Tab("Module 3"):
-        response = gr.Interface(fn=add_action, inputs="text", outputs="text")
+        gr.Dropdown(
+            ["Hotel", "Restaurant", "Taxi"], label="Domains",
+            info="Please choose a domain to continue the conversation!"
+        )
+        response = gr.Interface(fn=add_action, inputs="text", outputs=[gr.Textbox(label="Output Response")])
 
     with gr.Tab("All modules"):
+        gr.Dropdown(
+            ["Hotel", "Restaurant", "Taxi"], label="Domains",
+            info="Please choose a domain to continue the conversation!"
+        )
         dm = Dialogue_Manager(intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain)
         chatbot = gr.Chatbot(
             [],
@@ -249,6 +331,24 @@ with gr.Blocks() as demo:
             )
         txt_msg = txt.submit(add_text, [chatbot, txt], [chatbot, txt], queue=False)\
             .then(bot, chatbot, chatbot, api_name="bot_response")
+        with gr.Row("Logs"):
+            info_text = gr.Textbox(value=total, label="Logs")
+
+    with gr.Tab("Module 1 Demo"):
+        gr.Dropdown(
+            ["Hotel", "Restaurant", "Taxi"], label="Domains",
+            info="Please choose a domain to continue the conversation!"
+        )
+        dm2 = Dialogue_Manager(intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain)
+        state = gr.Interface(fn=add_state_demo, inputs="text", outputs=[gr.Textbox(label="Instruction"),gr.Textbox(label="Ontology"),gr.Textbox(label="History Dialogue"),gr.Textbox(label="Current Querry"),gr.Textbox(label="Label"),gr.Textbox(label="Predict Output")])
+
+    with gr.Tab("Module 3 Demo"):
+        gr.Dropdown(
+            ["Hotel", "Restaurant", "Taxi"], label="Domains",
+            info="Please choose a domain to continue the conversation!"
+        )
+        response1 = gr.Interface(fn=add_action_demo, inputs="text", outputs=[gr.Textbox(label="Ontology"),gr.Textbox(label="History Dialogue"),gr.Textbox(label="Documents"),gr.Textbox(label="Label"),gr.Textbox(label="Predict Output")])
+
 
 demo.queue()
 if __name__ == "__main__":
