@@ -573,14 +573,14 @@ path_db = r"C:\ALL\FPT\AIP\aip_final\src\module_action\db_hotels_1\hotels_1.db"
 for title, case in list_test_case.items():
     dm = Dialogue_Manager(intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain)
     for index, turn in enumerate(case[:-1]):
-        dm.convert_output_dst(turn)
+        dm.convert_output_dst(turn, "")
         dm.transform_action()
         if index == len(case[:-2]):
             if str(dm.policy.output_system_action) != case[-1]:
                 print("CASE:", title)
                 dm = Dialogue_Manager(intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain)
                 for turn in case[:-1]:
-                    dm.convert_output_dst(turn)
+                    dm.convert_output_dst(turn, "")
                     dm.transform_action()
                     print("user:  ", dm.after_output_dst)
                     print("system:",dm.policy.output_system_action)

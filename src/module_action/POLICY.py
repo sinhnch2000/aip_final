@@ -57,6 +57,7 @@ class Policy(ABC):
                 if value != None and slot in self.db_slots:
                     dict_slots_to_search.setdefault(slot, value)
         query = generate_query_search(dict_slots_to_search, self.previous_main_slot, self.domain, self.current_result) if alts else generate_query_search(dict_slots_to_search, self.previous_main_slot, self.domain)
+        print(query)
         rows = select_db(query, self.path_db)
         if rows:
             self.current_result.clear()

@@ -163,6 +163,11 @@ def add_action(system_action):
 
 
 def add_text(context, current_query):
+    print("context:")
+    if context != []:
+        for pair in context:
+            for text in pair:
+                print(text)
     sample_dst["current_query"] = "USER: " + current_query
     item_dst = sample_dst['instruction'] \
         .replace('{list_user_action}', sample_dst['list_user_action'].strip()) \
@@ -173,11 +178,16 @@ def add_text(context, current_query):
     output = model_dst.generate(input_tokens["input_ids"], attention_mask=input_tokens["attention_mask"],
                                 max_new_tokens=100)
     data_dst_1 = tokenizer.decode(output[0], skip_special_tokens=True)
-    dm.convert_output_dst(data_dst_1)
+    dm.convert_output_dst(data_dst_1, current_query)
+    print("input:", current_query, "\n")
+    print(data_dst_1)
     dm.transform_action()
+    dm.convert_to_output_paper()
     dm.convert_system_action_to_response()
+    print("module 1:\n\t" + dm.output_paper.replace("\n\n", "\n").replace("\n", "\n\t"))
+    print("module 2:", dm.system_action_to_response)
     if current_query[-1] in [" "]:
-        sample_res["system_action"] = "general_asking"
+        sample_res["system_action"] = ""
     else:
         sample_res["system_action"] = dm.system_action_to_response
     sample_dst['context'] = ""
@@ -187,7 +197,6 @@ def add_text(context, current_query):
         for utt in pair:
             if utt != None:
                 sample_dst["context"] += " "+utt
-    print(sample_dst["context"])
     sample_dst["context"] = sample_dst["context"].strip()
     return context, gr.Textbox(value="", interactive=True)
 
@@ -202,7 +211,13 @@ def bot(context):
     input_tokens = tokenizer(item_res, return_tensors="pt")
     output = model_res.generate(input_tokens["input_ids"], attention_mask=input_tokens["attention_mask"],
                                 max_new_tokens=100)
-    response = tokenizer.decode(output[0], skip_special_tokens=True)
+
+    if dm.only_negate_confirm == True:
+        response = "What's problem about these information ?"
+    else:
+        response = tokenizer.decode(output[0], skip_special_tokens=True)
+    print("module 3:", response)
+    print("-----------------------------------------------------------------------------------------------------------------------------")
     context[-1][1] = "AGENT: "
     for character in response:
         context[-1][1] += character
