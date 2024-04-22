@@ -424,8 +424,8 @@ def bot(context):
         yield context
 
 def clear_chat(chatbot, log_textbox):
-    chatbot.clear()  # Xóa chat hiện tại
-    log_textbox = ("")  # Cập nhật log_textbox thành một chuỗi rỗng
+    chatbot.clear()
+    log_textbox = ("")
     return chatbot, log_textbox
 
 
