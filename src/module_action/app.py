@@ -85,7 +85,7 @@ def get_ontology(domain_name, ontologies):
     return value_onto
     # value_onto = DOMAIN:(slot0=des0,slot1=des1,slot2=des2)
 
-schema = json.load(open(r"C:\ALL\FPT\AIP\aip_final\data\schema\schema_guided.json"))
+schema = json.load(open(r"C:\Users\HP\Desktop\Capstone\data\schema_guided.json"))
 
 domain = "HOTELS_1"
 intent_schema = {
@@ -140,7 +140,7 @@ ontology = {
     }
 ontology_string = "HOTELS_1:(slot0=location of the hotel; slot1=number of rooms in the reservation; slot2=start date for the reservation; slot3=number of days in the reservation; slot4=star rating of the hotel; slot5=name of the hotel; slot6=address of the hotel; slot7=phone number of the hotel; slot8=price per night for the reservation; slot9=boolean flag indicating if the hotel has wifi)"
 db_slots = ["hotel_name", "destination", "star_rating", "street_address", "phone_number", "price_per_night", "has_wifi", "number_of_rooms_available"]
-path_db = r"C:\ALL\FPT\AIP\aip_final\src\module_action\db_hotels_1\hotels_1.db"
+path_db = r"./db_hotels_1/hotels_1.db"
 
 model_name_or_path = 'google/flan-t5-base'
 config_path = r"./config.json"
@@ -358,7 +358,9 @@ def add_text(context, current_query):
     dm.convert_to_output_paper()
     dm.convert_system_action_to_response()
     print("module 1:\n\t" + dm.output_paper.replace("\n\n", "\n").replace("\n", "\n\t"))
+    output1 = "module 1:\n\t" + dm.output_paper.replace("\n\n", "\n").replace("\n", "\n\t")
     print("module 2:", dm.system_action_to_response)
+    output2 = "\n" + "module 2:" + "\n" + "\t"+dm.system_action_to_response
     if current_query[-1] in [" "]:
         sample_res["system_action"] = ""
     else:
@@ -371,7 +373,8 @@ def add_text(context, current_query):
             if utt != None:
                 sample_dst["context"] += " "+utt
     sample_dst["context"] = sample_dst["context"].strip()
-    return context, gr.Textbox(value="", interactive=True)
+    logs = output1+output2
+    return context, gr.Textbox(value="", interactive=True), logs
 
 def bot(context):
     sample_res["context"] = sample_dst["context"].strip()
@@ -420,6 +423,11 @@ def bot(context):
         time.sleep(0.0001)
         yield context
 
+def clear_chat(chatbot, log_textbox):
+    chatbot.clear()  # Xóa chat hiện tại
+    log_textbox = ("")  # Cập nhật log_textbox thành một chuỗi rỗng
+    return chatbot, log_textbox
+
 
 initial_md = "GRADBOT"
 with gr.Blocks() as demo:
@@ -442,6 +450,7 @@ with gr.Blocks() as demo:
         )
         response = gr.Interface(fn=add_action, inputs="text", outputs=[gr.Textbox(label="Output Response")])
 
+
     with gr.Tab("All modules"):
         dm = Dialogue_Manager(intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain)
         chatbot = gr.Chatbot(
@@ -449,6 +458,8 @@ with gr.Blocks() as demo:
             elem_id="chatbot",
             bubble_full_width=False,
         )
+        log_textbox = gr.Textbox(label="Logs", elem_id="log_textbox", value="", interactive=False, visible=True,
+                                 lines=10)
         with gr.Row():
             txt = gr.Textbox(
                 scale=6,
@@ -456,10 +467,12 @@ with gr.Blocks() as demo:
                 placeholder="Enter text and press enter",
                 container=False,
             )
-        txt_msg = txt.submit(add_text, [chatbot, txt], [chatbot, txt], queue=False)\
+            clear_button = gr.Button("Clear Chat")
+            clear_button.click(clear_chat, inputs=[chatbot, log_textbox], outputs=[chatbot, log_textbox])
+
+        txt_msg = txt.submit(add_text, [chatbot, txt], [chatbot, txt, log_textbox], queue=False) \
             .then(bot, chatbot, chatbot, api_name="bot_response")
-        with gr.Row("Logs"):
-            info_text = gr.Textbox(value=total, label="Logs")
+
 
     with gr.Tab("Module 1 Demo"):
         state = gr.Interface(fn=add_state_demo, inputs="text", outputs=[gr.Textbox(label="Ontology"),gr.Textbox(label="History Dialogue"),gr.Textbox(label="Current Querry"),gr.Textbox(label="Label"),gr.Textbox(label="Predict Output"), gr.Textbox(label="JGA")])
