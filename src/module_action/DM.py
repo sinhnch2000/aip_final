@@ -5,6 +5,10 @@ import random
 
 class Dialogue_Manager:
     def __init__(self, intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain):
+        self.initialize_properties(intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain)
+
+    def initialize_properties(self, intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain):
+
         self.list_action = ["inform", "request","inform_intent", "negate_intent", "affirm_intent", "affirm", "negate", "select", "thank_you", "goodbye", "greet", "general_asking", "request_alts"]
         self.classify_dst = ""
         self.path_db = path_db
@@ -87,6 +91,10 @@ class Dialogue_Manager:
                     if intent == new_intent:
                         break
                 self.map_intent_schema.setdefault(intent, listSlots)
+
+    def clear(self):
+        self.initialize_properties(self.intent_schema, self.main_slot, self.ontology, self.offer_slots, self.db_slots,
+                                   self.path_db, self.domain)
 
     def convert_output_dst(self, before_output_dst, current):
         # edit action

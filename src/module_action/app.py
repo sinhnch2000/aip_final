@@ -357,6 +357,7 @@ def add_text(context, current_query):
     dm.transform_action()
     dm.convert_to_output_paper()
     dm.convert_system_action_to_response()
+
     print("module 1:\n\t" + dm.output_paper.replace("\n\n", "\n").replace("\n", "\n\t"))
     output1 = "module 1:\n\t" + dm.output_paper.replace("\n\n", "\n").replace("\n", "\n\t")
     print("module 2:", dm.system_action_to_response)
@@ -422,12 +423,12 @@ def bot(context):
         context[-1][1] += character
         time.sleep(0.0001)
         yield context
-
+dm = Dialogue_Manager(intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain)
 def clear_chat(chatbot, log_textbox):
     chatbot.clear()
     log_textbox = ("")
+    dm.clear()
     return chatbot, log_textbox
-
 
 initial_md = "GRADBOT"
 with gr.Blocks() as demo:
@@ -452,7 +453,6 @@ with gr.Blocks() as demo:
 
 
     with gr.Tab("All modules"):
-        dm = Dialogue_Manager(intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain)
         chatbot = gr.Chatbot(
             [],
             elem_id="chatbot",
