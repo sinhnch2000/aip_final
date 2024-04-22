@@ -109,7 +109,6 @@ class Dialogue_Manager:
         if "asking>" in before_output_dst:
             if "asking" not in self.after_output_dst.keys():
                 self.after_output_dst.setdefault("asking", {"none":"none"})
-                self.policy.output_system_action.setdefault("asking", {"none":"none"})
         elif before_output_dst == "":
             self.after_output_dst.append("")
         else:
@@ -175,18 +174,17 @@ class Dialogue_Manager:
                         del self.after_output_dst[act]
                     if act in ["affirm", "select", "affirm_intent"] and self.policy.dst.slots[self.main_slot] != None:
                         del self.after_output_dst[act]
-            if any(act in self.after_output_dst.keys() for act in ["negate", "negate_intent"]) and self.policy.dst.slots[self.main_slot] == None:
-                if self.user_intent == "":
-                    self.set_offer_intent("search")
-                else:
-                    self.set_offer_intent("book")
-                self.offer_new_intent()
 
-        if self.offer_intent != "" and "affirm" in self.after_output_dst.keys() and self.check_confirm:
+        if self.offer_intent != "" and "affirm" in self.after_output_dst.keys() and "request" in self.after_output_dst.keys():
             del self.after_output_dst["request"]
 
         if "thank_you" in self.after_output_dst.keys() and "thank" not in current.lower():
             del self.after_output_dst["thank_you"]
+
+        if "negate" in self.after_output_dst.keys():
+            for act in ["goodbye", "request"]:
+                if act in self.after_output_dst.keys():
+                    del self.after_output_dst[act]
 
     def convert_system_action_to_response(self):
         list_action = []
@@ -270,6 +268,20 @@ class Dialogue_Manager:
         # negate or affirm search
         if "search" in self.offer_intent.lower():
             self.negate_and_affirm_intent("search")
+
+        if self.requesting:
+            self.requesting = False
+            if any(act in self.after_output_dst.keys() for act in ["negate", "negate_intent"]) and self.policy.dst.slots[self.main_slot] == None:
+                if self.user_intent == "":
+                    self.set_offer_intent("search")
+                else:
+                    self.set_offer_intent("book")
+                self.offer_new_intent()
+
+        # negate or affirm book
+        for intent in self.list_action_for_intent["book"]:
+            if intent in self.offer_intent.lower():
+                self.negate_and_affirm_intent("book")
         # No intent == offer search
         if self.user_intent == "NONE":
             if "thank_you" not in self.after_output_dst.keys():
@@ -453,10 +465,11 @@ class Dialogue_Manager:
                         self.set_offer_intent("book")
                         self.offer_new_intent()
 
-            # negate or affirm book
-            for intent in self.list_action_for_intent["book"]:
-                if intent in self.offer_intent.lower():
-                    self.negate_and_affirm_intent("book")
+        print(self.offer_intent.lower())
+        # negate or affirm book
+        for intent in self.list_action_for_intent["book"]:
+            if intent in self.offer_intent.lower():
+                self.negate_and_affirm_intent("book")
 
         if "thank_you" in self.after_output_dst.keys():
             if "negate" in self.after_output_dst.keys() or "goodbye" in self.after_output_dst.keys():
@@ -466,7 +479,10 @@ class Dialogue_Manager:
                 self.check_req_more = True
 
         if self.check_notify_success or self.check_req_more:
-            self.clear_all_things()
+            if any(act in self.policy.output_system_action.keys() for act in ["inform", "inform_intent"]):
+                self.clear_all_things()
+                self.check_notify_success = False
+                self.check_req_more = False
             if "negate" in self.after_output_dst.keys():
                 self.policy.output_system_action.update({"goodbye": {"none": "none"}})
 
@@ -492,18 +508,18 @@ class Dialogue_Manager:
         else:
             self.requesting = False
 
-        for action, list_slot_value in self.policy.output_system_action.items():
-            if action in ["request", "confirm"]:
-                tmp = list_slot_value.copy()
-                for slot, value in tmp.items():
-                    if slot in self.map_ontology.keys():
-                        del self.policy.output_system_action[action][slot]
-                        slot = self.map_ontology[slot][0]
-                        if "request" in self.policy.output_system_action.keys():
-                            for des, list_slot in self.ontology.items():
-                                if slot in list_slot:
-                                    slot = des
-                        self.policy.output_system_action[action][slot.replace("_", " ")] = value
+        # for action, list_slot_value in self.policy.output_system_action.items():
+        #     if action in ["request", "confirm", "offer", "inform"]:
+        #         tmp = list_slot_value.copy()
+        #         for slot, value in tmp.items():
+        #             if slot in self.map_ontology.keys():
+        #                 del self.policy.output_system_action[action][slot]
+        #                 slot = self.map_ontology[slot][0]
+        #                 if "request" in self.policy.output_system_action.keys():
+        #                     for des, list_slot in self.ontology.items():
+        #                         if slot in list_slot:
+        #                             slot = des
+        #                 self.policy.output_system_action[action][slot.replace("_", " ")] = value
 
         if "confirm" in self.policy.output_system_action.keys() and "request" in self.after_output_dst.keys():
             del self.policy.output_system_action["confirm"]
@@ -513,10 +529,12 @@ class Dialogue_Manager:
         if any(act in self.policy.output_system_action.keys() for act in ["notify_success", "confirm", "req_more"]):
             if "request" in self.policy.output_system_action.keys():
                 del self.policy.output_system_action["request"]
-        if "negate" in self.after_output_dst.keys():
-            for act in ["goodbye", "request"]:
-                if act in self.after_output_dst.keys():
-                    del self.after_output_dst[act]
+
+        if "offer_intent" in self.policy.output_system_action.keys():
+            if "req_more" in self.policy.output_system_action.keys():
+                del self.policy.output_system_action["req_more"]
+            if "goodbye" in self.policy.output_system_action.keys():
+                del self.policy.output_system_action["goodbye"]
 
     def offer_current_option(self):
         if "inform" not in self.policy.output_system_action.keys():
