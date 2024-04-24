@@ -13,9 +13,7 @@ CREATE TABLE HOTELS_1 (
     slot6 TEXT,
     slot7 TEXT,
     slot8 INTEGER,
-    slot9 TEXT,
-    number_of_rooms_available INTEGER
-);
+    slot9 TEXT);
 '''
 cursor.execute(create_table_query)
 conn.commit()

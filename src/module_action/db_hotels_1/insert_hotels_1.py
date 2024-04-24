@@ -10,15 +10,14 @@ INSERT INTO HOTELS_1 (slot0,
                       slot6,
                       slot7,
                       slot8,
-                      slot9,
-                      number_of_rooms_available) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"""
+                      slot9) VALUES (?, ?, ?, ?, ?, ?, ?)"""
 
 hotel_1_data = [
-    ("District 1", 4, 'CayXanh', "21 Nguyen Hue", "0903610477", 12, "True", 23),
-    ("District 1", 5, 'CayHong', "13 Dong Khoi", "0822610477", 20, "False", 1),
-    ("District 3", 3, 'CayVang', "23 Nguyen Xien", "0972334567", 8, "True", 2),
-    ("District 1", 4, 'CayDen', "134 CMT8", "0972334567", 7, "True", 2),
-    ("District 1", 5, 'CayDo', "15 Pham Dang Giang", "0972334567", 7, "True", 2),
+    ("District 1", 4, 'CayXanh', "21 Nguyen Hue", "0903610477", 12, "True"),
+    ("District 1", 5, 'CayHong', "13 Dong Khoi", "0822610477", 20, "True"),
+    ("District 3", 3, 'CayVang', "23 Nguyen Xien", "0972334567", 8, "True"),
+    ("District 1", 4, 'CayDen', "134 CMT8", "0972334567", 7, "True"),
+    ("District 1", 5, 'CayDo', "15 Pham Dang Giang", "0972334567", 7, "True"),
 ]
 
 cursor.executemany(insert_query, hotel_1_data)

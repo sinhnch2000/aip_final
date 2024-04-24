@@ -46,7 +46,6 @@ def timeit(func):
         return result
     return timeit_wrapper
 
-
 class Trainer:
     def __init__(self,
                  model_name_or_path: str,

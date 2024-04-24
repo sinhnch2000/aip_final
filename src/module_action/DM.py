@@ -6,9 +6,7 @@ import random
 class Dialogue_Manager:
     def __init__(self, intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain):
         self.initialize_properties(intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain)
-
     def initialize_properties(self, intent_schema, main_slot, ontology, offer_slots, db_slots, path_db, domain):
-
         self.list_action = ["inform", "request","inform_intent", "negate_intent", "affirm_intent", "affirm", "negate", "select", "thank_you", "goodbye", "greet", "general_asking", "request_alts"]
         self.classify_dst = ""
         self.path_db = path_db
@@ -51,8 +49,7 @@ class Dialogue_Manager:
             for slot in offer_slots:
                 if slot in listSlots:
                     self.offer_slots.append(slotdigit)
-        else:
-            self.db_slots.append(slot)
+
         self.policy = Policy(self.map_ontology, self.main_slot, self.db_slots, self.path_db, self.domain)
         # intent_schema = {intent_0:{description_0:[slot0]},
         #                  intent_1:{description_1:[slot0, slot1, slot2]},
@@ -117,6 +114,7 @@ class Dialogue_Manager:
         if "asking>" in before_output_dst:
             if "asking" not in self.after_output_dst.keys():
                 self.after_output_dst.setdefault("asking", {"none":"none"})
+                self.policy.output_system_action.setdefault("asking", {"none": "none"})
         elif before_output_dst == "":
             self.after_output_dst.append("")
         else:
@@ -150,15 +148,18 @@ class Dialogue_Manager:
                             self.after_output_dst[action][slot] = value
                             # after_output_dst = {action0:{slot0:value0, slot1:value1},
                             #                     action1:{slot2:value2},
+        if self.check_notify_success or self.check_req_more:
+            if any(act in self.policy.output_system_action.keys() for act in ["inform", "inform_intent"]):
+                self.clear_all_things()
         if "inform_intent" in self.after_output_dst.keys():
             for new_intent, list_old_intent in self.list_action_for_intent.items():
                 for old_intent in list_old_intent:
                     if old_intent in self.after_output_dst["inform_intent"]["intent"].lower():
                         self.after_output_dst["inform_intent"]["intent"] = new_intent
                         break
-            if self.user_intent == self.after_output_dst["inform_intent"]["intent"]:
+            if self.user_intent == self.after_output_dst["inform_intent"]["intent"] and self.check_notify_success == False and self.check_req_more == False:
                 del self.after_output_dst["inform_intent"]
-            elif (self.after_output_dst["inform_intent"]["intent"] == "search" and self.user_intent == "book"):
+            elif (self.after_output_dst["inform_intent"]["intent"] == "search" and self.user_intent == "book") and self.check_notify_success == False and self.check_req_more == False:
                 del self.after_output_dst["inform_intent"]
 
         if "inform_intent" in self.after_output_dst.keys():
@@ -204,6 +205,7 @@ class Dialogue_Manager:
 
         for action, slot_value in self.policy.output_system_action.items():
             for slot, value in slot_value.items():
+
                 tmp = ""
                 if value == "none":
                     if slot == "none":
@@ -222,7 +224,7 @@ class Dialogue_Manager:
         list_current_action = []
         list_current_state = []
         for action, list_slot_value in self.after_output_dst.items():
-            if action in ["thank_you", "goodbye", "greet"]:
+            if action in ["thank_you", "goodbye", "greet", "asking"]:
                 type = "ODD"
             for slot, value in list_slot_value.items():
                 if slot in self.map_ontology.keys():
@@ -236,6 +238,10 @@ class Dialogue_Manager:
         current_action+="\n".join(list_current_action)
         current_state +="\n".join(list_current_state)
         self.output_paper = "(TYPE) " + type + "\n\n(CURRENT ACTION)\n" + current_action + "\n\n(CURRENT STATE)\n"+ current_state
+        self.output_paper = self.output_paper.replace("thank_you>" + self.domain.lower(), "thank>general")
+        self.output_paper = self.output_paper.replace("goodbye>" + self.domain.lower(), "bye>general")
+        self.output_paper = self.output_paper.replace("greet>" + self.domain.lower(), "greet>general")
+        self.output_paper = self.output_paper.replace("asking>" + self.domain.lower(), "asking>general")
 
     def transform_action(self):
         self.system_action_to_response = ""
@@ -391,18 +397,31 @@ class Dialogue_Manager:
                     if "accept" in result_check_search and "select" not in self.after_output_dst.keys():
 
                         # no current_result or change_search_slots = True
-                        if self.policy.current_result == {} or self.change_search_slots == True:
+                        if "request_alts" in self.after_output_dst.keys() or self.policy.current_result == {} or self.change_search_slots == True:
                             self.change_search_slots = False
+                            print(self.policy.dst.slots[self.main_slot])
                             if self.policy.dst.slots[self.main_slot] == None:
-                                self.policy.search(alts = False)
-                                self.offer_current_option()
+                                # request_alts with != old main_slot
+                                alts = True if "request_alts" in self.after_output_dst.keys() or self.exist_main_slot else False
+                                for slot in self.map_intent_schema['search']:
+                                    if self.policy.dst.slots[slot] != None:
+                                        self.policy.search(alts)
+
+                                if self.policy.current_result != {}:
+                                    self.offer_current_option()
                             else:
-                                self.policy.search(alts=False, check_exist=True)
-                                for s, v in self.after_output_dst["inform"].items():
-                                    if v != self.policy.dst.slots[s]:
-                                        if "inform" not in self.policy.output_system_action.keys():
-                                            self.policy.output_system_action.setdefault("inform", {self.main_slot: self.policy.dst.slots[self.main_slot]})
-                                        self.policy.output_system_action["inform"].setdefault(s, self.policy.dst.slots[s])
+                                alts = True if "request_alts" in self.after_output_dst.keys() else False
+                                for slot in self.map_intent_schema['search']:
+                                    if self.policy.dst.slots[slot] != None:
+                                        self.policy.search(alts, check_exist=True)
+                                if self.policy.current_result != {} and self.policy.dst.slots[self.main_slot] == None:
+                                    self.offer_current_option()
+                                if "inform" in self.after_output_dst.keys():
+                                    for s, v in self.after_output_dst["inform"].items():
+                                        if v != self.policy.dst.slots[s]:
+                                            if "inform" not in self.policy.output_system_action.keys():
+                                                self.policy.output_system_action.setdefault("inform", {self.main_slot: self.policy.dst.slots[self.main_slot]})
+                                            self.policy.output_system_action["inform"].setdefault(s, self.policy.dst.slots[s])
                                 if "asking" not in self.policy.output_system_action.keys():
                                     result_check_book = self.policy.check_slot(self.user_intent, self.map_intent_schema["book"])
                                     if self.change_main_slot and self.user_intent != "book":
@@ -421,8 +440,10 @@ class Dialogue_Manager:
                                     self.move_request_after_turn()
                         else:
                             if "asking" not in self.policy.output_system_action.keys():
+                                if any(act in ["select", "affirm", "affirm_intent"] for act in self.after_output_dst.keys()):
+                                    if self.policy.current_result != {}:
+                                        self.update_main_slot()
                                 if self.policy.current_result != {}:
-                                    self.update_main_slot()
                                     if "request" not in self.after_output_dst.keys():
                                         result_check_book = self.policy.check_slot(self.user_intent, self.map_intent_schema["book"])
                                         self.request_missing_slot(result_check_book)
@@ -496,12 +517,17 @@ class Dialogue_Manager:
 
         if "goodbye" in self.after_output_dst.keys():
             self.policy.output_system_action.update({"goodbye": {"none": "none"}})
+            tmp = list(self.policy.output_system_action.keys()).copy()
+            for act in tmp:
+                if act not in ["goodbye", "thank_you"]:
+                    del self.policy.output_system_action[act]
+
 
         if self.exist_main_slot == False and self.policy.current_result == {}:
             self.set_offer_intent("search")
             self.offer_new_intent()
 
-        if self.policy.current_result == {} and self.exist_main_slot == False:
+        if self.policy.current_result == {} and self.exist_main_slot == False and self.policy.dst.slots[self.main_slot] == None:
             if "request" in self.policy.output_system_action.keys():
                 del self.policy.output_system_action["request"]
             self.policy.output_system_action = {}
@@ -543,6 +569,20 @@ class Dialogue_Manager:
                 del self.policy.output_system_action["req_more"]
             if "goodbye" in self.policy.output_system_action.keys():
                 del self.policy.output_system_action["goodbye"]
+        if "asking" in self.policy.output_system_action.keys():
+            del self.policy.output_system_action["asking"]
+        for action, list_slot_value in self.policy.output_system_action.items():
+            if action in ["request", "confirm", "offer", "inform"]:
+                tmp = list_slot_value.copy()
+                for slot, value in tmp.items():
+                    if slot in self.map_ontology.keys():
+                        del self.policy.output_system_action[action][slot]
+                        slot = self.map_ontology[slot][0]
+                        if "request" in self.policy.output_system_action.keys():
+                            for des, list_slot in self.ontology.items():
+                                if slot in list_slot:
+                                    slot = des
+                        self.policy.output_system_action[action][slot.replace("_", " ")] = value
 
     def offer_current_option(self):
         if "inform" not in self.policy.output_system_action.keys():
